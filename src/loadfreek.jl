@@ -1,4 +1,4 @@
-function hdf5_chain_freek(dir, scanfile, outname)
+function make_hdf5_chain_freek(dir, scanfile, outname)
     dfchain, dfsum = load_chains_freek(dir, scanfile)
     h5open(outname, "w") do fid
         fid["time"] = dfsum[:,:time]

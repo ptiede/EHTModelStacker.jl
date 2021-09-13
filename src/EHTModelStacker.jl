@@ -1,6 +1,11 @@
-module HeirarchyStacker
+module EHTModelStacker
 
 export ChainH5, SnapshotWeights, getsnapshot, lpdf
+
+include("loadrose.jl")
+export make_hdf5_chain_rose
+include("loadfreek.jl")
+export make_hdf5_chain_freek 
 
 using Distributions
 using HDF5
