@@ -1,4 +1,5 @@
 name = "EHTModelStacker"
+uuid = "3b0111de-d5c8-4b6e-a1b3-8f46034c2286"
 authors = ["Paul Tiede <ptiede91@gmail.com>"]
 version = "0.1.0"
 
