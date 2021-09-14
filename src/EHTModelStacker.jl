@@ -6,11 +6,12 @@ using HDF5
 using StatsFuns
 using KernelDensity
 using CSV
+using TupleVectors
 
 include("loadrose.jl")
 export make_hdf5_chain_rose
 include("loadfreek.jl")
-export make_hdf5_chain_freek 
+export make_hdf5_chain_freek
 
 
 
@@ -25,15 +26,24 @@ struct ChainH5{N,C,T,Z}
     chain::C
     times::T
     logz::Z
-    nsamples::Int
 end
 
 
 function lpdf(d::SnapshotWeights, chain::ChainH5)
-    ls = zero(eltype(chain.chain[1]))
+    ls = 0.0
     @inbounds for i in eachindex(chain.times)
-        csub = @view chain.chain[i][1:chain.nsamples]
-        tmp = sum(x->pdf(d.transition,x)/pdf(d.prior, x), csub)/chain.nsamples
+        csub = @view chain.chain[i]
+        tmp = sum(x->pdf(d.transition,x)/pdf(d.prior, x), csub)/length(csub)
+        ls += log(tmp+eps(typeof(tmp)))
+    end
+    return ls
+end
+
+function lpdf(d::SnapshotWeights, chain::ChainH5{T,V,A,B}) where {T, V<:Vector{AbstractMatrix}, A, B}
+    ls = 0.0
+    @inbounds for i in eachindex(chain.times)
+        csub = @view chain.chain[i]
+        tmp = sum(x->pdf(d.transition,x)/pdf(d.prior, x), eachcol(csub))/size(csub, 2)
         ls += log(tmp+eps(typeof(tmp)))
     end
     return ls
@@ -46,7 +56,7 @@ end
     end
 end
 
-function ChainH5(filename::String, quant::String, nsamples::Int)
+function ChainH5(filename::String, quant::String)
     fid = h5open(filename, "r")
     times = read(fid["time"])
     params = read(fid["params"])
@@ -54,7 +64,26 @@ function ChainH5(filename::String, quant::String, nsamples::Int)
     chain = [params[n][quant] for n in names]
     logz = read(fid["logz"])
 
-    return ChainH5{Symbol(quant), typeof(chain), typeof(times), typeof(logz)}(chain, times, logz, nsamples)
+    return ChainH5{Symbol(quant), typeof(chain), typeof(times), typeof(logz)}(chain, times, logz)
 end
+
+function ChainH5(filename::String, quant::NTuple{N,Symbol}) where {N}
+    chain = h5open(filename, "r") do fid
+        times = read(fid["time"])
+        params = read(fid["params"])
+        logz = read(fid["logz"])
+        names = ["scan$i" for i in 1:length(times)]
+        chain = [Array(hcat([params[n][String(k)] for k in quant]...)') for n in names]
+        ChainH5{quant, typeof(chain), typeof(times), typeof(logz)}(chain, times, logz)
+    end
+    return chain
+end
+
+function flatchain(chain::ChainH5)
+    return chain.chain
+end
+
+
+
 
 end #end
