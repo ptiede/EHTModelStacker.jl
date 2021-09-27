@@ -28,9 +28,9 @@ function load_chains(dir)
     ind = parse.(Int,first.(splitext.(last.(split.(files, '-')))))
     sind = sortperm(ind)
     dfs = CSV.File.(files) .|> DataFrame
-    for df in dfs
-        df.diamdb = @. df.diam - 1/(4*log(2))*df.fwhm^2/df.diam
-    end
+    #for df in dfs
+    #    df.img_diamdb = @. df.img_diam - 1/(4*log(2))*df.img_fwhm^2/df.img_diam
+    #end
 
     return dfs[sind], dfsum
 end
