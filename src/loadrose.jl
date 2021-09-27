@@ -36,11 +36,23 @@ function load_chains(dir)
 end
 
 
+function removegains!(df)
+    keep = []
+    for n in names(df)
+      if !startswith(String(n),"g_σ")
+        push!(keep, n)
+      end
+    end
+    select!(df, keep...)
+end
+
+
 function merge_summaries(sumdir)
     files = filter(endswith(".csv"), readdir(sumdir, join=true))
     df = CSV.File(files[1]) |> DataFrame
+    removegains!(df)
     for f in files[2:end]
-        append!(df, CSV.File(f)|> DataFrame)
+      append!(df, removegains!(CSV.File(f)|> DataFrame))
     end
     return sort!(df, :time)
 end
