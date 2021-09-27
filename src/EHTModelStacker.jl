@@ -8,6 +8,7 @@ using KernelDensity
 using CSV
 using TupleVectors
 using LoopVectorization
+using DataFrames
 
 include("loadrose.jl")
 export make_hdf5_chain_rose
