@@ -20,7 +20,7 @@ end
 Loads the set of csv chains and summary file assuming the structure present in parallel_main
 """
 function load_chains(dir)
-    files = filter(endswith(".csv"), readdir(joinpath(dir,"Chain"), join=true))
+    files = filter(x->endswith(x,".csv")&&startswith(basename(x), "equal_chain"), readdir(joinpath(dir,"Chain"), join=true))
     sfile = joinpath(dir,"merged_stats.csv")
     dfsum = merge_summaries(joinpath(dir, "Stats"))
     CSV.write(sfile, dfsum)
