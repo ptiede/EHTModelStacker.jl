@@ -58,7 +58,7 @@ struct WrappedNormal{T, S} <: Distributions.ContinuousUnivariateDistribution
     end
 end
 
-function logpdf(d::WrappedNormal, x::Real)
+function Distributions.logpdf(d::WrappedNormal, x::Real)
     s,c = sincos(x-d.μ)
     dθ = atan(s,c)
     return -0.5*abs2(dθ/d.σ) + d.lnorm
@@ -84,6 +84,17 @@ Base.minimum(::VonMisesWrap) = -Inf
 Base.maximum(::VonMisesWrap) = Inf
 
 
+struct MyProduct{T} <: Distributions.ContinuousMultivariateDistribution
+    dists::T
+end
+
+function Distributions.logpdf(d::MyProduct, x::AbstractVector)
+    acc = 0.0
+    for i in eachindex(d.dists,x)
+        acc += Distributions.logpdf(d.dists[i], x[i])
+    end
+    return acc
+end
 
 
 
@@ -132,8 +143,8 @@ function Distributions.pdf(d::MvNormal2D, x)
 
 end
 
-
-function lpdf(d::SnapshotWeights, chain::ChainH5)
+#=
+function lpdf(d::SnapshotWeights, chain::ChainH5{K,A,B,C}) where {K<:NTuple{1}, A, B, C}
     ls = 0.0
     @inbounds for i in eachindex(chain.times)
         csub = chain.chain[i]
@@ -146,15 +157,17 @@ function lpdf(d::SnapshotWeights, chain::ChainH5)
     end
     return ls
 end
+=#
 
-function lpdf(d::SnapshotWeights{A,B}, chain::ChainH5) where {A<:AbstractMvNormal, B}
+
+function lpdf(d::SnapshotWeights, chain::ChainH5)
     ls = 0.0
     @inbounds @simd for i in eachindex(chain.times)
         csub = @view chain.chain[i][:,1:chain.nsamples]
         tmp = 0.0
         for i in 1:chain.nsamples
             l = @view csub[:,i]
-            tmp += exp(logpdf(d.transition,l) - logpdf(d.prior, l))
+            tmp += exp(Distributions.logpdf(d.transition,l) - Distributions.logpdf(d.prior, l))
         end
         ls += log(tmp/chain.nsamples+eps(typeof(tmp)))
     end
