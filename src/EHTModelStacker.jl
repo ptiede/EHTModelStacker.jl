@@ -9,6 +9,7 @@ using CSV
 using TupleVectors
 using LoopVectorization
 using DataFrames
+using SpecialFunctions: besselix
 
 include("loadrose.jl")
 export make_hdf5_chain_rose
@@ -45,6 +46,46 @@ struct MvNormalFast{T<:AbstractVector, N} <: Distributions.AbstractMvNormal
         return new{typeof(μ), typeof(lnorm)}(μ, Σ, lnorm)
     end
 end
+
+
+struct WrappedNormal{T, S} <: Distributions.ContinuousUnivariateDistribution
+    μ::T
+    σ::T
+    lnorm::S
+    function WrappedNormal(μ::T, σ::T) where {T}
+        lnorm = -log(σ) - 0.5*log(2π)
+        return new{T, typeof(lnorm)}(μ, σ, lnorm)
+    end
+end
+
+function logpdf(d::WrappedNormal, x::Real)
+    s,c = sincos(x-d.μ)
+    dθ = atan(s,c)
+    return -0.5*abs2(dθ/d.σ) + d.lnorm
+end
+
+struct VonMisesWrap{T,S} <: Distributions.ContinuousUnivariateDistribution
+    μ::T
+    σ::S
+    I0κx::S
+end
+
+function VonMisesWrap(μ, σ)
+    VonMisesWrap(μ, σ, besselix(zero(typeof(σ)), 1/σ^2))
+end
+
+function Distributions.logpdf(dist::VonMisesWrap, x::Real)
+    μ,σ = dist.μ, dist.σ
+    dθ = (cos(x-μ)-1)/σ^2
+    return dθ - log(dist.I0κx) - log2π
+end
+
+Base.minimum(::VonMisesWrap) = -Inf
+Base.maximum(::VonMisesWrap) = Inf
+
+
+
+
 
 
 struct MvUniform{T<:AbstractVector, N} <: Distributions.ContinuousMultivariateDistribution

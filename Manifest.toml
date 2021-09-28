@@ -563,6 +563,10 @@ git-tree-sha1 = "c0f4a4836e5f3e0763243b8324200af6d0e0f90c"
 uuid = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
 version = "1.10.5"
 
+[[OpenLibm_jll]]
+deps = ["Artifacts", "Libdl"]
+uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
+
 [[OpenSSL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "15003dcb7d8db3c6c857fda14891a539a8f2705a"
@@ -755,10 +759,10 @@ deps = ["LinearAlgebra", "Random"]
 uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [[SpecialFunctions]]
-deps = ["ChainRulesCore", "LogExpFunctions", "OpenSpecFun_jll"]
-git-tree-sha1 = "a322a9493e49c5f3a10b50df3aedaf1cdb3244b7"
+deps = ["ChainRulesCore", "IrrationalConstants", "LogExpFunctions", "OpenLibm_jll", "OpenSpecFun_jll"]
+git-tree-sha1 = "793793f1df98e3d7d554b65a107e9c9a6399a6ed"
 uuid = "276daf66-3868-5448-9aa4-cd146d93841b"
-version = "1.6.1"
+version = "1.7.0"
 
 [[Static]]
 deps = ["IfElse"]
