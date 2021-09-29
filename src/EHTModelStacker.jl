@@ -58,7 +58,7 @@ struct NormalFast{T} <: Distributions.ContinuousUnivariateDistribution
 end
 
 @inline function Distributions.logpdf(d::NormalFast, x::Real)
-    return d.lnorm + 0.5*((x-d.μ)/d.σ)^2
+    return d.lnorm - 0.5*((x-d.μ)/d.σ)^2
 end
 
 
@@ -184,6 +184,7 @@ function lpdf(d::SnapshotWeights, chain::ChainH5)
         @inbounds for l in eachcol(csub)
             #l = @view csub[:,i]
             tmp += exp(Distributions.logpdf(d.transition,l) - Distributions.logpdf(d.prior, l))
+            println(tmp)
         end
         ls += log(tmp/chain.nsamples+eps(typeof(tmp)))
     end
@@ -205,7 +206,7 @@ function ChainH5(filename::String, quant::Symbol, nsamples)
     params = read(fid["params"])
     k = sortperm(parse.(Int, last.(split.(keys(fid["params"]), "scan"))))
     names = keys(params)[k]
-    chain = [params[n][String(quant)] for n in names]
+    chain = [params[n][String(quant)][1:nsamples] for n in names]
     logz = read(fid["logz"])
 
     return ChainH5{quant, typeof(chain), typeof(times), typeof(logz)}(chain, times, logz, nsamples)
