@@ -184,7 +184,6 @@ function lpdf(d::SnapshotWeights, chain::ChainH5)
         @inbounds for l in eachcol(csub)
             #l = @view csub[:,i]
             tmp += exp(Distributions.logpdf(d.transition,l) - Distributions.logpdf(d.prior, l))
-            println(tmp)
         end
         ls += log(tmp/chain.nsamples+eps(typeof(tmp)))
     end
