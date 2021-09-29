@@ -47,6 +47,20 @@ struct MvNormalFast{T<:AbstractVector, N} <: Distributions.AbstractMvNormal
     end
 end
 
+struct NormalFast{T} <: Distributions.ContinuousUnivariateDistribution
+    μ::T
+    σ::T
+    lnorm::T
+    function NormalFast(μ::T, σ::T) where {T}
+        lnorm = -log(σ) - 0.5*log(2π)
+        return new{T}(μ, σ, lnorm)
+    end
+end
+
+@inline function Distributions.logpdf(d::NormalFast, x::Real)
+    return d.lnorm + 0.5*((x-d.μ)/d.σ)^2
+end
+
 
 struct WrappedNormal{T, S} <: Distributions.ContinuousUnivariateDistribution
     μ::T
@@ -74,7 +88,7 @@ function VonMisesWrap(μ, σ)
     VonMisesWrap(μ, σ, besselix(zero(typeof(σ)), 1/σ^2))
 end
 
-function Distributions.logpdf(dist::VonMisesWrap, x::Real)
+@inline function Distributions.logpdf(dist::VonMisesWrap, x::Real)
     μ,σ = dist.μ, dist.σ
     dθ = (cos(x-μ)-1)/σ^2
     return dθ - log(dist.I0κx) - log2π
@@ -88,10 +102,12 @@ struct MyProduct{T} <: Distributions.ContinuousMultivariateDistribution
     dists::T
 end
 
-function Distributions.logpdf(d::MyProduct, x::AbstractVector)
+marginal(d::MyProduct, i) = @inbounds d.dists[i]
+
+Base.@propagate_inbounds @inline function Distributions.logpdf(d::MyProduct, x::AbstractVector)
     acc = 0.0
     for i in eachindex(d.dists,x)
-        acc += Distributions.logpdf(d.dists[i], x[i])
+        acc += Distributions.logpdf(marginal(d, i), x[i])
     end
     return acc
 end
@@ -163,10 +179,10 @@ end
 function lpdf(d::SnapshotWeights, chain::ChainH5)
     ls = 0.0
     @inbounds @simd for i in eachindex(chain.times)
-        csub = @view chain.chain[i][:,1:chain.nsamples]
+        csub = chain.chain[i]
         tmp = 0.0
-        for i in 1:chain.nsamples
-            l = @view csub[:,i]
+        @inbounds for l in eachcol(csub)
+            #l = @view csub[:,i]
             tmp += exp(Distributions.logpdf(d.transition,l) - Distributions.logpdf(d.prior, l))
         end
         ls += log(tmp/chain.nsamples+eps(typeof(tmp)))
@@ -202,7 +218,7 @@ function ChainH5(filename::String, quant::NTuple{N,Symbol}, nsamples) where {N}
         logz = read(fid["logz"])
         k = sortperm(parse.(Int, last.(split.(keys(fid["params"]), "scan"))))
         names = keys(fid["params"])[k]
-        chain = [Array(hcat([params[n][String(k)] for k in quant]...)') for n in names]
+        chain = [Array(hcat([params[n][String(k)][1:nsamples] for k in quant]...)') for n in names]
         ChainH5{quant, typeof(chain), typeof(times), typeof(logz)}(chain, times, logz, nsamples)
     end
     return chain
