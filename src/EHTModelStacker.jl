@@ -9,6 +9,7 @@ using CSV
 using TupleVectors
 using LoopVectorization
 using DataFrames
+using ArraysOfArrays
 using SpecialFunctions: besselix
 
 include("loadrose.jl")
@@ -21,6 +22,7 @@ export make_hdf5_chain_freek
 struct SnapshotWeights{T,P}
     transition::T
     prior::P
+    batchsize::Int
 end
 
 struct ConstantWeights{T,P} end
@@ -29,7 +31,6 @@ struct ChainH5{N,C,T,Z}
     chain::C
     times::T
     logz::Z
-    nsamples::Int
 end
 
 struct MvNormal2D{T,C}
@@ -125,6 +126,12 @@ struct MvUniform{T<:AbstractVector, N} <: Distributions.ContinuousMultivariateDi
     end
 end
 
+function Base.rand(d::MvUniform)
+    return d.mins .+ rand(length(d.mins)).*(d.maxs .- d.mins)
+end
+
+Distributions.support(d::MvUniform) = d.mins, d.maxs
+
 @inline inbounds(d::MvUniform, x) = d.mins < x < d.maxs
 
 
@@ -178,14 +185,16 @@ end
 
 function lpdf(d::SnapshotWeights, chain::ChainH5)
     ls = 0.0
+    #ind = rand(axes(flatview(chain.chain),2), d.batchsize)
+    schain = @view flatview(chain.chain)[:, 1:d.batchsize, :]
     @inbounds @simd for i in eachindex(chain.times)
-        csub = chain.chain[i]
+        csub = @view schain[:,:, i]
         tmp = 0.0
         @inbounds for l in eachcol(csub)
             #l = @view csub[:,i]
             tmp += exp(Distributions.logpdf(d.transition,l) - Distributions.logpdf(d.prior, l))
         end
-        ls += log(tmp/chain.nsamples+eps(typeof(tmp)))
+        ls += log(tmp/d.batchsize+eps(typeof(tmp)))
     end
     return ls
 end
@@ -199,7 +208,7 @@ end
     end
 end
 
-function ChainH5(filename::String, quant::Symbol, nsamples)
+function ChainH5(filename::String, quant::Symbol, nsamples=2000)
     fid = h5open(filename, "r")
     times = read(fid["time"])
     params = read(fid["params"])
@@ -208,18 +217,21 @@ function ChainH5(filename::String, quant::Symbol, nsamples)
     chain = [params[n][String(quant)][1:nsamples] for n in names]
     logz = read(fid["logz"])
 
-    return ChainH5{quant, typeof(chain), typeof(times), typeof(logz)}(chain, times, logz, nsamples)
+    return ChainH5{quant, typeof(chain), typeof(times), typeof(logz)}(chain, times, logz)
 end
 
-function ChainH5(filename::String, quant::NTuple{N,Symbol}, nsamples) where {N}
+function ChainH5(filename::String, quant::NTuple{N,Symbol}, nsamples=2000) where {N}
     chain = h5open(filename, "r") do fid
         times = read(fid["time"])
         params = read(fid["params"])
         logz = read(fid["logz"])
         k = sortperm(parse.(Int, last.(split.(keys(fid["params"]), "scan"))))
         names = keys(fid["params"])[k]
-        chain = [Array(hcat([params[n][String(k)][1:nsamples] for k in quant]...)') for n in names]
-        ChainH5{quant, typeof(chain), typeof(times), typeof(logz)}(chain, times, logz, nsamples)
+        chain = nestedview(zeros(length(quant), nsamples, length(names)),2)
+        for (i,n) in enumerate(names)
+            chain[i] = Array(hcat([params[n][String(k)][1:nsamples] for k in quant]...)')
+        end
+        ChainH5{quant, typeof(chain), typeof(times), typeof(logz)}(chain, times, logz)
     end
     return chain
 end
@@ -227,13 +239,13 @@ end
 function getparam(c::ChainH5{K, A, B, C}, p::Symbol) where {K, A, B, C}
     i = findfirst(x->x==p, K)
     chain = [c.chain[n][i, :] for n in 1:length(c.chain)]
-    return ChainH5{K[i], typeof(chain), typeof(c.times), typeof(c.logz)}(chain, c.times, c.logz, c.nsamples)
+    return ChainH5{K[i], typeof(chain), typeof(c.times), typeof(c.logz)}(chain, c.times, c.logz)
 end
 
 function getparam(c::ChainH5{K, A, B, C}, ps::NTuple{N,Symbol}) where {K, A, B, C, N}
     i = Int[findfirst(x->x==p, K) for p in ps]
     chain = [c.chain[n][i, :] for n in 1:length(c.chain)]
-    return ChainH5{ps, typeof(chain), typeof(c.times), typeof(c.logz)}(chain, c.times, c.logz, c.nsamples)
+    return ChainH5{ps, typeof(chain), typeof(c.times), typeof(c.logz)}(chain, c.times, c.logz)
 end
 
 
@@ -252,10 +264,9 @@ function restricttime(c::ChainH5, tmin, tmax)
     end
 
     return ChainH5{keys(c), typeof(c.chain), typeof(c.times), typeof(c.logz)}(
-                @view(c.chain[imin:imax]),
-                @view(c.times[imin:imax]),
-                @view(c.logz[imin:imax]),
-                c.nsamples
+                c.chain[imin:imax],
+                c.times[imin:imax],
+                c.logz[imin:imax],
                 )
 end
 
