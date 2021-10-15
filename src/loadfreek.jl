@@ -1,17 +1,6 @@
 function make_hdf5_chain_freek(dir, scanfile, outname)
     dfchain, dfsum = load_chains_freek(dir, scanfile)
-    h5open(outname, "w") do fid
-        fid["time"] = dfsum[:,:time]
-        fid["logz"] = dfsum[:,:logz]
-        pid = create_group(fid, "params")
-        for i in 1:length(dfchain)
-            sid = create_group(pid, "scan$i")
-            keys = names(dfchain[i])
-            for k in keys
-                write(sid, k, dfchain[i][:,Symbol(k)])
-            end
-        end
-    end
+    write2h5(dfchain, dfsum, outname)
 end
 
 
@@ -33,12 +22,12 @@ function load_chains_freek(dir, scanfile)
     return dfs[sind], dfsum
 end
 
-function readscanfilefreek(scanfile)
+function readscanfile(scanfile)
     df = CSV.File(scanfile,
              delim=' ',
              comment="#",
              header=[:scan, :time, :foo1, :foo2],
-             select=[2]) |> DataFrame
+             select=[1,2]) |> DataFrame
     return df
 end
 

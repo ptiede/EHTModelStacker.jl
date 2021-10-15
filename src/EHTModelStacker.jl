@@ -11,11 +11,14 @@ using LoopVectorization
 using DataFrames
 using ArraysOfArrays
 using SpecialFunctions: besselix
+using NPZ
 
 include("loadrose.jl")
 export make_hdf5_chain_rose
 include("loadfreek.jl")
 export make_hdf5_chain_freek
+include("loaddpi.jl")
+export make_hdf5_chain_dpi
 
 
 
@@ -27,8 +30,9 @@ end
 
 struct ConstantWeights{T,P} end
 
-struct ChainH5{N,C,T,Z}
+struct ChainH5{C,N,T,Z}
     chain::C
+    names::N
     times::T
     logz::Z
 end
@@ -202,12 +206,6 @@ end
 
 
 
-@generated function getsnapshot(c::ChainH5{N}, i::Int) where {N}
-    quote
-        ($N=c.chain[i], time = c.times[i], logz=c.logz[i])
-    end
-end
-
 function ChainH5(filename::String, quant::Symbol, nsamples=2000)
     fid = h5open(filename, "r")
     times = read(fid["time"])
@@ -217,7 +215,7 @@ function ChainH5(filename::String, quant::Symbol, nsamples=2000)
     chain = [params[n][String(quant)][1:nsamples] for n in names]
     logz = read(fid["logz"])
 
-    return ChainH5{quant, typeof(chain), typeof(times), typeof(logz)}(chain, times, logz)
+    return ChainH5{typeof(chain), typeof(quant), typeof(times), typeof(logz)}(chain, quant, times, logz)
 end
 
 function ChainH5(filename::String, quant::NTuple{N,Symbol}, nsamples=2000) where {N}
@@ -231,21 +229,21 @@ function ChainH5(filename::String, quant::NTuple{N,Symbol}, nsamples=2000) where
         for (i,n) in enumerate(names)
             chain[i] = Array(hcat([params[n][String(k)][1:nsamples] for k in quant]...)')
         end
-        ChainH5{quant, typeof(chain), typeof(times), typeof(logz)}(chain, times, logz)
+        ChainH5{typeof(chain), typeof(quant), typeof(times), typeof(logz)}(chain, quant, times, logz)
     end
     return chain
 end
 
-function getparam(c::ChainH5{K, A, B, C}, p::Symbol) where {K, A, B, C}
-    i = findfirst(x->x==p, K)
+function getparam(c::ChainH5, p::Symbol)
+    i = findfirst(x->x==p, c.names)
     chain = [c.chain[n][i, :] for n in 1:length(c.chain)]
-    return ChainH5{K[i], typeof(chain), typeof(c.times), typeof(c.logz)}(chain, c.times, c.logz)
+    return ChainH5{typeof(chain), typeof(p), typeof(c.times), typeof(c.logz)}(chain, p, c.times, c.logz)
 end
 
-function getparam(c::ChainH5{K, A, B, C}, ps::NTuple{N,Symbol}) where {K, A, B, C, N}
-    i = Int[findfirst(x->x==p, K) for p in ps]
+function getparam(c::ChainH5, ps::NTuple{N,Symbol}) where {N}
+    i = Int[findfirst(x->x==p, c.names) for p in ps]
     chain = [c.chain[n][i, :] for n in 1:length(c.chain)]
-    return ChainH5{ps, typeof(chain), typeof(c.times), typeof(c.logz)}(chain, c.times, c.logz)
+    return ChainH5{typeof(chain), typeof(ps), typeof(c.times), typeof(c.logz)}(chain, ps, c.times, c.logz)
 end
 
 
@@ -263,14 +261,15 @@ function restricttime(c::ChainH5, tmin, tmax)
         imax = findfirst(x->x>tmax, c.times)-1
     end
 
-    return ChainH5{keys(c), typeof(c.chain), typeof(c.times), typeof(c.logz)}(
+    return ChainH5{typeof(c.chain), typeof(c.names), typeof(c.times), typeof(c.logz)}(
                 c.chain[imin:imax],
+                c.names,
                 c.times[imin:imax],
                 c.logz[imin:imax],
                 )
 end
 
-Base.keys(c::ChainH5{K, A, B, C}) where {K,A,B,C} = K
+Base.keys(c::ChainH5) = c.names
 
 function flatchain(chain::ChainH5)
     return chain.chain

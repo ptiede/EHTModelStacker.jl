@@ -1,5 +1,9 @@
 function make_hdf5_chain_rose(dir, outname)
     dfchain, dfsum = load_chains(dir)
+    write2h5(dfchain, dfsum, outname)
+end
+
+function write2h5(dfchain, dfsum, outname)
     h5open(outname, "w") do fid
         fid["time"] = dfsum[:,:time]
         fid["logz"] = dfsum[:,:logz]
