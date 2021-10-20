@@ -9,7 +9,7 @@ end
 
 
 
-function load_chain_dpi(dir, scanfile; efile = joinpath(dirname(dirname(dirname(dir))), "evidence_lower_bound.npy"))
+function load_chain_dpi(dir, scanfile; efile = joinpath(dirname(dirname(dir)), "evidence_lower_bound.npy"))
     files = filter(endswith(".npy"), readdir(dir, join=true))
     dfscan = readscanfile(scanfile)
     scans = parse.(Int, first.(split.(last.(split.(files, Ref("postsamples"))), "_")))

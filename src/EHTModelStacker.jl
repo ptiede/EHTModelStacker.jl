@@ -10,7 +10,7 @@ using TupleVectors
 using LoopVectorization
 using DataFrames
 using ArraysOfArrays
-using SpecialFunctions: besselix
+using SpecialFunctions: besselix, beta
 using NPZ
 
 include("loadrose.jl")
@@ -42,6 +42,7 @@ struct MvNormal2D{T,C}
     Σ::C
 end
 
+
 struct MvNormalFast{T<:AbstractVector, N} <: Distributions.AbstractMvNormal
     μ::T
     Σ::T
@@ -50,6 +51,10 @@ struct MvNormalFast{T<:AbstractVector, N} <: Distributions.AbstractMvNormal
         lnorm = -0.5*log(prod(Σ)) - length(μ)/2*log(2π)
         return new{typeof(μ), typeof(lnorm)}(μ, Σ, lnorm)
     end
+end
+
+function Distributions.cdf(d::NormalFast, x::Real)
+    return Distributions.cdf(Normal(d.μ, d.σ),x)
 end
 
 struct NormalFast{T} <: Distributions.ContinuousUnivariateDistribution
@@ -65,6 +70,64 @@ end
 @inline function Distributions.logpdf(d::NormalFast, x::Real)
     return d.lnorm - 0.5*((x-d.μ)/d.σ)^2
 end
+
+Distributions.@distr_support NormalFast -Inf Inf
+
+# logcdf
+function _normlogcdf(z::Real)
+    if z < -one(z)
+        return log(erfcx(-z * invsqrt2)/2) - abs2(z)/2
+    else
+        return log1p(-erfc(z * invsqrt2)/2)
+    end
+end
+
+function Distributions.logcdf(d::NormalFast, x::Real)
+    if iszero(d.σ) && x == d.μ
+        z = zval(NormalFast(zero(d.μ), d.σ), one(x))
+    else
+        z = zval(d, x)
+    end
+    return _normlogcdf(z)
+end
+
+# logccdf
+function _normlogccdf(z::Real)
+    if z > one(z)
+        return log(erfcx(z * invsqrt2)/2) - abs2(z)/2
+    else
+        return log1p(-erfc(-z * invsqrt2)/2)
+    end
+end
+
+function Distributions.logccdf(d::NormalFast, x::Real)
+    if iszero(d.σ) && x == d.μ
+        z = zval(NormalFast(zero(d.μ), d.σ), one(x))
+    else
+        z = zval(d, x)
+    end
+    return _normlogccdf(z)
+end
+
+# cdf
+_normcdf(z::Real) = erfc(-z * invsqrt2)/2
+
+
+struct BetaFast{T} <: Distributions.ContinuousUnivariateDistribution
+    α::T
+    β::T
+    lnorm::T
+    function BetaFast(α::T, β::T) where {T}
+        lnorm = -logbeta(α, β)
+        return new{T}(α, β, lnorm)
+    end
+end
+Distributions.support(::BetaFast{T}) where {T} = zero(T), one(T)
+
+function Distributions.logpdf(d::BetaFast, x::Real)
+    return (d.α-1)*log(x) + (d.β-1)*log1p(-x) + d.lnorm
+end
+
 
 
 struct WrappedNormal{T, S} <: Distributions.ContinuousUnivariateDistribution
