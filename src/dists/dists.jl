@@ -1,0 +1,6 @@
+include("betafast.jl")
+include("mvnormal.jl")
+include("mvuniform.jl")
+include("normal.jl")
+include("product.jl")
+include("vonmises.jl")
