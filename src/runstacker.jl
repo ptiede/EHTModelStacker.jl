@@ -1,7 +1,7 @@
 using Pkg; Pkg.activate(@__DIR__)
-includet("heirarchical_stacker.jl")
-includet("loadrose.jl")
-includet("loadfreek.jl")
+include("heirarchical_stacker.jl")
+include("loadrose.jl")
+include("loadfreek.jl")
 using .HeirarchyStacker
 using CairoMakie
 using PyCall
