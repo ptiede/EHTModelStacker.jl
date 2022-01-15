@@ -36,6 +36,10 @@ function _normlogcdf(z::Real)
     end
 end
 
+@inline function zval(d::NormalFast, x)
+    return (x-d.μ)/d.σ
+end
+
 function Distributions.logcdf(d::NormalFast, x::Real)
     if iszero(d.σ) && x == d.μ
         z = zval(NormalFast(zero(d.μ), d.σ), one(x))

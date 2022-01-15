@@ -1,5 +1,5 @@
-function make_hdf5_chain_rose(dir, outname)
-    dfchain, dfsum = load_chains(dir)
+function make_hdf5_chain_rose(dirs, outname)
+    dfchain, dfsum = load_chains(dirs)
     write2h5(dfchain, dfsum, outname)
 end
 
@@ -23,7 +23,15 @@ end
     load_chains(dir)
 Loads the set of csv chains and summary file assuming the structure present in parallel_main
 """
-function load_chains(dir)
+function load_chains(dirs)
+    chains = load_chains_1day.(dirs)
+    dfs = vcat(first.(chains)...)
+    dfsum = vcast(last.(chains)...)
+    return dfs, dfsum
+end
+
+
+function load_chains_1day(dir)
     files = filter(x->endswith(x,".csv")&&startswith(basename(x), "equal_chain"), readdir(joinpath(dir,"Chain"), join=true))
     sfile = joinpath(dir,"merged_stats.csv")
     dfsum = merge_summaries(joinpath(dir, "Stats"))
