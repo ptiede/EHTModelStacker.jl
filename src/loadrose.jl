@@ -26,7 +26,7 @@ Loads the set of csv chains and summary file assuming the structure present in p
 function load_chains(dirs)
     chains = load_chains_1day.(dirs)
     dfs = vcat(first.(chains)...)
-    dfsum = vcast(last.(chains)...)
+    dfsum = vcat(last.(chains)...)
     return dfs, dfsum
 end
 
