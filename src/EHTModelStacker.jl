@@ -78,20 +78,8 @@ end
 
 
 
-function ChainH5(filename::String, quant::Symbol, nsamples=2000)
-    fid = h5open(filename, "r")
-    times = read(fid["time"])
-    params = read(fid["params"])
-    k = sortperm(parse.(Int, last.(split.(keys(fid["params"]), "scan"))))
-    names = keys(params)[k]
-    chain = [params[n][String(quant)][1:nsamples] for n in names]
-    logz = read(fid["logz"])
-
-    return ChainH5{typeof(chain), typeof(quant), typeof(times), typeof(logz)}(chain, quant, times, logz)
-end
-
-function ChainH5(filename::String, quant::NTuple{N,Symbol}, nsamples=2000) where {N}
-    chain = h5open(filename, "r") do fid
+function _load_single(filename, quant, nsamples)
+    h5open(filename, "r") do fid
         times = read(fid["time"])
         params = read(fid["params"])
         logz = read(fid["logz"])
@@ -101,9 +89,25 @@ function ChainH5(filename::String, quant::NTuple{N,Symbol}, nsamples=2000) where
         for (i,n) in enumerate(names)
             chain[i] = Array(hcat([params[n][String(k)][1:nsamples] for k in quant]...)')
         end
-        ChainH5{typeof(chain), typeof(quant), typeof(times), typeof(logz)}(chain, quant, times, logz)
+        return chain, times, logz
     end
-    return chain
+end
+
+function ChainH5(files::Vector{String}, quant::NTuple{N,Symbol}, nsamples=2000) where {N}
+    chain,  times, logz = _load_single(files[1], quant, nsamples)
+    for f in files[2:end]
+        c, t, lz = _load_single(f, quant, nsamples)
+        chain = vcat(chain, c)
+        times = vcat(times, t)
+        logz  = vcat(logz, lz)
+    end
+    ChainH5{typeof(chain), typeof(quant), typeof(times), typeof(logz)}(chain, quant, times, logz)
+end
+
+
+function ChainH5(filename::String, quant::NTuple{N,Symbol}, nsamples=2000) where {N}
+    chain, times, logz = _load_single(filename, quant, nsamples)
+    ChainH5{typeof(chain), typeof(quant), typeof(times), typeof(logz)}(chain, quant, times, logz)
 end
 
 function getparam(c::ChainH5, p::Symbol)
