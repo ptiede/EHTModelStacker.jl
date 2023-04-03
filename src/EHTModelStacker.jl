@@ -69,6 +69,7 @@ function lpdf(d::SnapshotWeights, chain::ChainH5)
         @inbounds for l in eachcol(csub)
             #l = @view csub[:,i]
             tmp += exp(Distributions.logpdf(d.transition,l) - Distributions.logpdf(d.prior, l))
+            # tmp += exp(Distributions.logpdf(d.prior, l))
         end
         ls += log(tmp/d.batchsize+eps(typeof(tmp)))
     end
@@ -85,18 +86,23 @@ function _load_single(filename, quant, nsamples)
         logz = read(fid["logz"])
         k = sortperm(parse.(Int, last.(split.(keys(fid["params"]), "scan"))))
         names = keys(fid["params"])[k]
+        if isnothing(quant)
+            quant = Symbol.(keys(params[first(names)]))
+        end
+
+
         chain = nestedview(zeros(length(quant), nsamples, length(names)),2)
         for (i,n) in enumerate(names)
             chain[i] = Array(hcat([params[n][String(k)][1:nsamples] for k in quant]...)')
         end
-        return chain, times, logz
+        return chain, times, quant, logz
     end
 end
 
-function ChainH5(files::Vector{String}, quant::NTuple{N,Symbol}, nsamples=2000) where {N}
+function ChainH5(files::Vector{String}; quant = nothing, nsamples=2000) where {N}
     chain,  times, logz = _load_single(files[1], quant, nsamples)
     for f in files[2:end]
-        c, t, lz = _load_single(f, quant, nsamples)
+        c, t, q, lz = _load_single(f, quant, nsamples)
         chain = vcat(chain, c)
         times = vcat(times, t)
         logz  = vcat(logz, lz)
@@ -105,9 +111,9 @@ function ChainH5(files::Vector{String}, quant::NTuple{N,Symbol}, nsamples=2000) 
 end
 
 
-function ChainH5(filename::String, quant::NTuple{N,Symbol}, nsamples=2000) where {N}
-    chain, times, logz = _load_single(filename, quant, nsamples)
-    ChainH5{typeof(chain), typeof(quant), typeof(times), typeof(logz)}(chain, quant, times, logz)
+function ChainH5(filename::String; quant=nothing, nsamples=2000) where {N}
+    chain, times, q, logz = _load_single(filename, quant, nsamples)
+    ChainH5{typeof(chain), typeof(q), typeof(times), typeof(logz)}(chain, q, times, logz)
 end
 
 function getparam(c::ChainH5, p::Symbol)

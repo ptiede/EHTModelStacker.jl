@@ -1,3 +1,5 @@
+using SpecialFunctions
+
 
 """
     NormalFast(μ,σ)
@@ -20,6 +22,7 @@ function Distributions.cdf(d::NormalFast, x::Real)
     return Distributions.cdf(Normal(d.μ, d.σ),x)
 end
 
+Distributions.zval(d::NormalFast, x) = (x - d.μ)/d.σ
 
 @inline function Distributions.logpdf(d::NormalFast, x::Real)
     return d.lnorm - 0.5*((x-d.μ)/d.σ)^2
@@ -27,6 +30,7 @@ end
 
 Distributions.@distr_support NormalFast -Inf Inf
 
+using Distributions: zval
 # logcdf
 function _normlogcdf(z::Real)
     if z < -one(z)
