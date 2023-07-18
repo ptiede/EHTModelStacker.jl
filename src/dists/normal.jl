@@ -1,4 +1,5 @@
 using SpecialFunctions
+using Random
 
 
 """
@@ -17,6 +18,8 @@ struct NormalFast{T} <: Distributions.ContinuousUnivariateDistribution
         return new{T}(μ, σ, lnorm)
     end
 end
+
+Distributions.quantile(d::NormalFast, x::Real; kwargs...) = quantile(Normal(d.μ, d.σ), x; kwargs...)
 
 function Distributions.cdf(d::NormalFast, x::Real)
     return Distributions.cdf(Normal(d.μ, d.σ),x)
