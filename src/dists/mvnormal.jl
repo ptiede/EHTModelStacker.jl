@@ -19,7 +19,7 @@ end
 @inline function Distributions.logpdf(d::MvNormalFast, x::AbstractVector)
     μ,Σ = d.μ, d.Σ
     acc = zero(eltype(x))
-    @turbo for i in eachindex(x)
+    @inbounds @simd for i in eachindex(x)
         acc += -(x[i]-μ[i])^2/Σ[i]/2
     end
     return acc + d.lnorm

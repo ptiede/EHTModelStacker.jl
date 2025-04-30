@@ -5,7 +5,6 @@ include("loadfreek.jl")
 using .HeirarchyStacker
 using CairoMakie
 using PyCall
-using TupleVectors
 using HDF5
 @pyimport dynesty
 @pyimport themispy as tpy
@@ -126,8 +125,8 @@ function average_chain(build_model, minp, maxp, chain)
     sampler.run_nested()
     res = sampler.results
     samples, weights = res["samples"], exp.(res["logwt"] .- res["logz"][end])
-    tv = TupleVector((μ=samples[:,1], σ=samples[:,2]))
-    echain = TupleVector(sample(tv, Weights(weights), 2000))
+    tv = StructArray((μ=samples[:,1], σ=samples[:,2]))
+    echain = StructArray(sample(tv, Weights(weights), 2000))
     return echain
 end
 

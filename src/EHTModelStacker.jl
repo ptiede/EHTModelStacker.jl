@@ -6,8 +6,6 @@ using HDF5
 using StatsFuns
 using KernelDensity
 using CSV
-using TupleVectors
-using LoopVectorization
 using DataFrames
 using ArraysOfArrays
 using SpecialFunctions: besselix, beta
@@ -99,7 +97,7 @@ function _load_single(filename, quant, nsamples)
     end
 end
 
-function ChainH5(files::Vector{String}; quant = nothing, nsamples=2000) where {N}
+function ChainH5(files::Vector{String}; quant = nothing, nsamples=2000)
     chain,  times, logz = _load_single(files[1], quant, nsamples)
     for f in files[2:end]
         c, t, q, lz = _load_single(f, quant, nsamples)
@@ -111,7 +109,7 @@ function ChainH5(files::Vector{String}; quant = nothing, nsamples=2000) where {N
 end
 
 
-function ChainH5(filename::String; quant=nothing, nsamples=2000) where {N}
+function ChainH5(filename::String; quant=nothing, nsamples=2000)
     chain, times, q, logz = _load_single(filename, quant, nsamples)
     ChainH5{typeof(chain), typeof(q), typeof(times), typeof(logz)}(chain, q, times, logz)
 end
