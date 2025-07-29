@@ -3,21 +3,6 @@ function make_hdf5_chain_rose(dir, outname)
     write2h5(dfchain, dfsum, outname)
 end
 
-function write2h5(dfchain, dfsum, outname)
-    h5open(outname, "w") do fid
-        fid["time"] = dfsum[:,:time]
-        fid["logz"] = dfsum[:,:logz]
-        pid = create_group(fid, "params")
-        for i in 1:length(dfchain)
-            sid = create_group(pid, "scan$i")
-            keys = names(dfchain[i])
-            for k in keys
-                write(sid, k, dfchain[i][:,Symbol(k)])
-            end
-        end
-    end
-end
-
 
 """
     load_chains(dir)

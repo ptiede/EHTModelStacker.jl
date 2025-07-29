@@ -4,25 +4,15 @@ export ChainH5, SnapshotWeights, getsnapshot, lpdf, keys, getparam, restricttime
 using Distributions
 using HDF5
 using StatsFuns
-using KernelDensity
 using CSV
 using DataFrames
 using ArraysOfArrays
 using SpecialFunctions: besselix, beta
-using NPZ
 using OhMyThreads
 using StableRNGs
 
 
 include(joinpath(@__DIR__, "dists/dists.jl"))
-
-include("loadrose.jl")
-export make_hdf5_chain_rose
-include("loadfreek.jl")
-export make_hdf5_chain_freek
-include("loaddpi.jl")
-export make_hdf5_chain_dpi
-
 
 
 struct SnapshotWeights{T,P}
@@ -73,6 +63,22 @@ function lpdf(d::SnapshotWeights, chain::ChainH5)
     return ls
 end
 
+function write2h5(dfchain, dfsum, outname)
+    h5open(outname, "w") do fid
+        fid["time"] = dfsum[:,:time]
+        fid["logz"] = dfsum[:,:logz]
+        pid = create_group(fid, "params")
+        for i in 1:length(dfchain)
+            sid = create_group(pid, "scan$i")
+            keys = names(dfchain[i])
+            for k in keys
+                write(sid, k, dfchain[i][:,Symbol(k)])
+            end
+        end
+    end
+end
+
+
 
 
 
@@ -88,7 +94,7 @@ function _load_single(filename, quant, nsamples)
         end
         rng = StableRNG(42)
         chain = nestedview(zeros(length(quant), nsamples, length(names)),2)
-        ns = rand(rng, 1:length(params[names[1]][String(quant[1])]), nsamples) # Grab random samples
+        ns = rand(rng, 1:length(params[first(names)][String(quant[1])]), nsamples) # Grab random samples
         for (i,n) in enumerate(names)
             chain[i] = Array(hcat([params[n][String(k)][ns] for k in quant]...)')
         end
