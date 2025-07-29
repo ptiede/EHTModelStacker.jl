@@ -10,6 +10,8 @@ using DataFrames
 using ArraysOfArrays
 using SpecialFunctions: besselix, beta
 using NPZ
+using OhMyThreads
+using StableRNGs
 
 
 include(joinpath(@__DIR__, "dists/dists.jl"))
@@ -58,18 +60,15 @@ end
 
 
 function lpdf(d::SnapshotWeights, chain::ChainH5)
-    ls = 0.0
     #ind = rand(axes(flatview(chain.chain),2), d.batchsize)
     schain = @view flatview(chain.chain)[:, 1:d.batchsize, :]
-    @inbounds @simd for i in eachindex(chain.times)
+    ls = tmapreduce(+, eachindex(chain.times)) do i
         csub = @view schain[:,:, i]
         tmp = 0.0
         @inbounds for l in eachcol(csub)
-            #l = @view csub[:,i]
             tmp += exp(Distributions.logpdf(d.transition,l) - Distributions.logpdf(d.prior, l))
-            # tmp += exp(Distributions.logpdf(d.prior, l))
         end
-        ls += log(tmp/d.batchsize+eps(typeof(tmp)))
+        return log(tmp/d.batchsize+eps(typeof(tmp)))
     end
     return ls
 end
@@ -87,11 +86,11 @@ function _load_single(filename, quant, nsamples)
         if isnothing(quant)
             quant = Symbol.(keys(params[first(names)]))
         end
-
-
+        rng = StableRNG(42)
         chain = nestedview(zeros(length(quant), nsamples, length(names)),2)
+        ns = rand(rng, 1:length(params[names[1]][String(quant[1])]), nsamples) # Grab random samples
         for (i,n) in enumerate(names)
-            chain[i] = Array(hcat([params[n][String(k)][1:nsamples] for k in quant]...)')
+            chain[i] = Array(hcat([params[n][String(k)][ns] for k in quant]...)')
         end
         return chain, times, quant, logz
     end
