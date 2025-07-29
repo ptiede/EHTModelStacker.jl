@@ -15,10 +15,11 @@ using StableRNGs
 include(joinpath(@__DIR__, "dists/dists.jl"))
 
 
-struct SnapshotWeights{T,P}
+struct SnapshotWeights{T,P,E}
     transition::T
     prior::P
     batchsize::Int
+    scheduler::E
 end
 
 struct ConstantWeights{T,P} end
@@ -52,7 +53,7 @@ end
 function lpdf(d::SnapshotWeights, chain::ChainH5)
     #ind = rand(axes(flatview(chain.chain),2), d.batchsize)
     schain = @view flatview(chain.chain)[:, 1:d.batchsize, :]
-    ls = tmapreduce(+, eachindex(chain.times)) do i
+    ls = tmapreduce(+, eachindex(chain.times); scheduler=d.scheduler) do i
         csub = @view schain[:,:, i]
         tmp = 0.0
         @inbounds for l in eachcol(csub)
